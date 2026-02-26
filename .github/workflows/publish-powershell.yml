@@ -1,0 +1,41 @@
+name: publish-powershell-tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - fixture: WithExternalDependencies
+            expected: success
+          - fixture: WithInvalidExternalDependencies
+            expected: success
+          - fixture: WithRequiredModules
+            expected: success
+          - fixture: WithInvalidRequiredModules
+            expected: failure
+          - fixture: WithInvalidRequiredModules
+            expected: success
+            skip_validation: 'true'
+    name: ${{ matrix.fixture }}${{ matrix.skip_validation == 'true' && ' (SkipValidation)' || '' }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          sparse-checkout: tests/FakeModules/${{ matrix.fixture }}
+      - id: publish
+        uses: chris-peterson/publish-powershell@main
+        with:
+          ApiKey: dummy
+          SkipPublish: 'true'
+          SkipValidation: ${{ matrix.skip_validation || 'false' }}
+        continue-on-error: true
+      - run: test "${{ steps.publish.outcome }}" = "${{ matrix.expected }}"
+        name: Should ${{ matrix.expected == 'success' && 'pass' || 'fail' }}
